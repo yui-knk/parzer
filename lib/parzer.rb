@@ -1,3 +1,4 @@
+require "parzer/lr_zero"
 require "parzer/version"
 
 module Parzer
