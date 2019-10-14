@@ -1,3 +1,5 @@
+require "set"
+
 module Parzer
   module Lr_Zero
     def self.define_syntax(&block)
@@ -71,9 +73,23 @@ module Parzer
 
         @rules.flat_map do |rule|
           (0..(rule.right_tokens.count)).map do |i|
-            [rule.id, rule.left_token.name, rule.right_tokens.map(&:name).insert(i, "*")]
+            RuleWithPos.new(rule, i)
           end
         end
+      end
+
+      def construct_parse_table
+        ensure_syntax_definition_completed!
+
+        # a list of pairs of states (item sets) and numbers, called S
+        s = []
+        # a set of transitions T
+        t = Set.new
+        # a list U of numbers of new, unprocessed LR states
+        u = []
+
+        # Start with "*A" where "A" is the start symbol
+        station = stations.first
       end
 
       private
@@ -145,6 +161,24 @@ module Parzer
         @left_token = left_token
         @right_tokens = right_tokens
       end
+    end
+
+    # "*A" where "*" is pos
+    class RuleWithPos
+      def initialize(rule, pos_index)
+        @rule = rule
+        @pos_index = pos_index
+      end
+
+      def as_array
+        [@rule.id, @rule.left_token.name, @rule.right_tokens.map(&:name).insert(@pos_index, "*")]
+      end
+
+      def to_s
+        as_array.to_s
+      end
+
+      alias inspect to_s
     end
 
     class Terminal

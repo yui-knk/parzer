@@ -19,7 +19,7 @@ RSpec.describe Parzer::Lr_Zero do
   end
 
   it "#items" do
-    expect(context.items).to eq([
+    expect(context.items.map(&:as_array)).to eq([
       [1, :S, ["*", :E, :"$"]],
       [1, :S, [:E, "*", :"$"]],
       [1, :S, [:E, :"$", "*"]],
