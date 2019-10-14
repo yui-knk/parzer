@@ -15,7 +15,7 @@ RSpec.describe Parzer::Lr_Zero do
   end
 
   it "#stations" do
-    expect(context.stations).to eq([["*", :S], ["*", :E], ["*", :T]])
+    expect(context.stations.map(&:as_array)).to eq([["*", :S], ["*", :E], ["*", :T]])
   end
 
   it "#items" do
@@ -36,5 +36,9 @@ RSpec.describe Parzer::Lr_Zero do
       [5, :T, [:"(", :E, "*", :")"]],
       [5, :T, [:"(", :E, :")", "*"]],
     ])
+  end
+
+  it "#construct_parse_table" do
+    context.construct_parse_table
   end
 end

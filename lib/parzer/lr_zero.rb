@@ -63,7 +63,7 @@ module Parzer
         ensure_syntax_definition_completed!
 
         @n_tokens.map do |_, t|
-          ["*", t.name]
+          Station.new(t)
         end
       end
 
@@ -81,18 +81,80 @@ module Parzer
       def construct_parse_table
         ensure_syntax_definition_completed!
 
-        # a list of pairs of states (item sets) and numbers, called S
-        s = []
-        # a set of transitions T
+        # "a list of pairs of states (item sets) and numbers, called S"
+        # But here hash from state_id to states
+        s = {}
+        # Set of states to check duplication
+        ss = Set.new
+        # a set of transitions T, [from (state), to (state), pass (token)]
         t = Set.new
         # a list U of numbers of new, unprocessed LR states
         u = []
+        state_id = 1
 
         # Start with "*A" where "A" is the start symbol
-        station = stations.first
+        item = stations.first
+        states = build_state(item)
+        # Add states
+        s[state_id] = states
+        ss << states
+        u << state_id
+        state_id += 1
+
+        while !u.empty? do
+          target_state_id = u.shift
+          target_states = s[target_state_id]
+
+          all_tokens.each do |token|
+            # Set of states
+            v = Set.new
+
+            target_states.each do |state|
+              next if state.token_after_pos != token
+
+              new_state = state.right_shift_pos
+              states = build_state(new_state)
+              v.merge(states)
+            end
+
+            next if v.empty?
+            # Add transition even if states is already in ss.
+            t << [target_state_id, state_id, token]
+            next if ss.include?(v)
+            # Add states
+            s[state_id] = v
+            ss << v
+            u << state_id
+            state_id += 1
+          end
+        end
       end
 
       private
+
+      def all_tokens
+        @tokens.values + @n_tokens.values
+      end
+
+      def build_state(item_or_station)
+        states = Set.new
+        expand_state(item_or_station, states)
+        states
+      end
+
+      def expand_state(item_or_station, set)
+        return if set.include?(item_or_station)
+        set << item_or_station if item_or_station.is_item?
+        token = item_or_station.token_after_pos
+        return if token.nil?
+        return if token.is_terminal?
+
+        @rules.select do |rule|
+          rule.left_token == token
+        end.map do |rule|
+          expand_state(rule.build_rule_with_pos(0), set)
+        end
+      end
 
       def build_rules
         ensure_syntax_definition_not_completed!
@@ -161,17 +223,60 @@ module Parzer
         @left_token = left_token
         @right_tokens = right_tokens
       end
+
+      def build_rule_with_pos(pos)
+        RuleWithPos.new(self, pos)
+      end
+
+      def ==(other)
+        return false unless other.is_a?(Rule)
+
+        (self.id == other.id) && (self.left_token == other.left_token) && (self.right_tokens == other.right_tokens)
+      end
+      alias :eql? :==
+
+      def hash
+        [id, left_token, right_tokens].hash
+      end
     end
 
     # "*A" where "*" is pos
     class RuleWithPos
+      attr_reader :rule, :pos_index
+      # pos_index >= 0
       def initialize(rule, pos_index)
+        raise "pos_index should not be negative: #{pos_index}." if pos_index < 0
+        raise "pos_index should not be less than right_tokens count: #{rule.right_tokens.count}, #{pos_index}" if rule.right_tokens.count < pos_index
+
         @rule = rule
         @pos_index = pos_index
       end
 
+      def is_item?
+        true
+      end
+
+      def ==(other)
+        return false unless other.is_a?(RuleWithPos)
+
+        (self.rule == other.rule) && (self.pos_index == other.pos_index)
+      end
+      alias :eql? :==
+
+      def hash
+        [@rule, @pos_index].hash
+      end
+
       def as_array
         [@rule.id, @rule.left_token.name, @rule.right_tokens.map(&:name).insert(@pos_index, "*")]
+      end
+
+      def token_after_pos
+        @rule.right_tokens[@pos_index]
+      end
+
+      def right_shift_pos
+        RuleWithPos.new(@rule, @pos_index + 1)
       end
 
       def to_s
@@ -179,6 +284,29 @@ module Parzer
       end
 
       alias inspect to_s
+
+      # Check if dot is end (e.g. "aB*")
+      def dot_is_end?
+        @rule.right_tokens.count == @pos_index
+      end
+    end
+
+    class Station
+      def initialize(n_token)
+        @n_token = n_token
+      end
+
+      def token_after_pos
+        @n_token
+      end
+
+      def is_item?
+        false
+      end
+
+      def as_array
+        ["*", @n_token.name]
+      end
     end
 
     class Terminal
@@ -189,8 +317,27 @@ module Parzer
         @name = name
       end
 
+      def is_nonterminal?
+        false
+      end
+
+      def is_terminal?
+        true
+      end
+
       def to_s
         "\"#{@name}\" (#{@id})"
+      end
+
+      def ==(other)
+        return false unless other.is_a?(Terminal)
+
+        self.name == other.name
+      end
+      alias :eql? :==
+
+      def hash
+        @name.hash
       end
 
       alias inspect to_s
@@ -204,8 +351,27 @@ module Parzer
         @name = name
       end
 
+      def is_nonterminal?
+        true
+      end
+
+      def is_terminal?
+        false
+      end
+
       def to_s
         "\"#{@name}\" (#{@id})"
+      end
+
+      def ==(other)
+        return false unless other.is_a?(Nonterminal)
+
+        self.name == other.name
+      end
+      alias :eql? :==
+
+      def hash
+        @name.hash
       end
 
       alias inspect to_s
