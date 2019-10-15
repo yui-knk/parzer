@@ -10,6 +10,68 @@ module Parzer
       return context
     end
 
+    class Parser
+      def initialize(action, goto, tokens, n_tokens, lexer, s, t)
+        @action = action
+        @goto = goto
+        @tokens = tokens
+        @n_tokens = n_tokens
+        @all_tokens = tokens.merge(n_tokens)
+        @lexer = lexer
+        @s = s
+        @t = t
+        @stack = [1]
+        @parsed = false
+        @debug = false
+      end
+
+      def parse(debug = false)
+        raise "Already parsed." if @parsed
+        @parsed = true
+        @debug = debug
+
+        token = nil
+
+        loop do
+          log "Current stack: #{@stack}"
+
+          a = @action[@stack[-1]]
+
+          case a
+          when :shift
+            token = @lexer.next_token if token.nil?
+            log "Next token: #{token}."
+            t = @all_tokens[token]
+            raise "Unknown token: #{t}" unless t
+            # 
+            break if token == @n_tokens.first[0]
+
+            g = @goto[@stack[-1]][t.id]
+            raise "Syntax error." unless g
+
+            log "#{g} is pushed."
+            @stack.push(g)
+
+            token = nil
+          when Rule
+            @stack.pop(a.right_tokens.count)
+            log "Reduced by: #{a.inspect}."
+
+            token = a.left_token.name
+          else
+            raise "Unknown action: #{a}."
+          end
+        end
+      end
+
+      private
+
+      def log(msg)
+        return unless @debug
+        p msg
+      end
+    end
+
     # Context where syntax is defined
     class Context
       def initialize
@@ -86,7 +148,7 @@ module Parzer
         s = {}
         # Set of states to check duplication
         ss = Set.new
-        # a set of transitions T, [from (state), to (state), pass (token)]
+        # a set of transitions T, [from (state), path (token), to (state)]
         t = Set.new
         # a list U of numbers of new, unprocessed LR states
         u = []
@@ -119,7 +181,7 @@ module Parzer
 
             next if v.empty?
             # Add transition even if states is already in ss.
-            t << [target_state_id, state_id, token]
+            t << [target_state_id, token, state_id]
             next if ss.include?(v)
             # Add states
             s[state_id] = v
@@ -128,13 +190,45 @@ module Parzer
             state_id += 1
           end
         end
-      end
 
-      private
+        [s, t]
+      end
 
       def all_tokens
         @tokens.values + @n_tokens.values
       end
+
+      def action_goto_tables
+        s, t = construct_parse_table
+
+        action = []
+        goto = []
+
+        s.each do |k, v|
+          if v.count == 1 && v.to_a.first.dot_is_end?
+            action[k] = v.to_a.first.rule
+          else
+            action[k] = :shift
+          end
+        end
+
+        (0..s.count).each do |i|
+          goto[i] = []
+        end
+
+        t.each do |from, token, to|
+          goto[from][token.id] = to
+        end
+
+        return action, goto, s, t
+      end
+
+      def build_parser(lexer)
+        action, goto, s, t = action_goto_tables
+        Parser.new(action, goto, @tokens, @n_tokens, lexer, s, t)
+      end
+
+      private
 
       def build_state(item_or_station)
         states = Set.new
@@ -310,7 +404,7 @@ module Parzer
     end
 
     class Terminal
-      attr_reader :name
+      attr_reader :id, :name
 
       def initialize(id, name)
         @id = id
@@ -344,7 +438,7 @@ module Parzer
     end
 
     class Nonterminal
-      attr_reader :name
+      attr_reader :id, :name
 
       def initialize(id, name)
         @id = id

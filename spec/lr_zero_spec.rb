@@ -39,6 +39,28 @@ RSpec.describe Parzer::Lr_Zero do
   end
 
   it "#construct_parse_table" do
-    context.construct_parse_table
+    s, t = context.construct_parse_table
+
+    expect(s.count).to eq 10
+    expect(t.count).to eq 15
+  end
+
+  it "#action_goto_tables" do
+    action, goto = context.action_goto_tables
+  end
+
+  it "#parse" do
+    lexer = Class.new do
+      def initialize
+        @tokens = [:n, :-, :n, :-, :n, :"$"]
+      end
+
+      def next_token
+        @tokens.shift
+      end
+    end.new
+
+    parser = context.build_parser(lexer)
+    parser.parse
   end
 end
