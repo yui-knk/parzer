@@ -212,9 +212,11 @@ module Parzer
           t = rule.right_tokens[i + 1]
 
           if t.nil?
+            next if n_token == rule.left_token
             # n_token is the last
             result.merge(follow(rule.left_token))
           else
+            next if n_token == t
             result.merge(first(t))
           end
         end
