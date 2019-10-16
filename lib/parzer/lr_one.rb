@@ -86,8 +86,6 @@ module Parzer
         # "a list of pairs of states (item sets) and numbers, called S"
         # But here hash from state_id to states
         s = {}
-        # Set of states to check duplication
-        ss = Set.new
         # a set of transitions T, [from (state), path (token), to (state)]
         t = Set.new
         # a list U of numbers of new, unprocessed LR states
@@ -101,7 +99,6 @@ module Parzer
 
         # Add states
         s[state_id] = states
-        ss << states
         u << state_id
         state_id += 1
 
@@ -125,12 +122,11 @@ module Parzer
 
             next if v.empty?
 
-            if ss.include?(v)
+            if s.key(v)
               t << [target_state_id, token, s.key(v)]
             else
               # Add states
               s[state_id] = v
-              ss << v
               u << state_id
               t << [target_state_id, token, state_id]
               state_id += 1
