@@ -22,8 +22,6 @@ module Parzer
         @token_id = 1
         @n_token_id = 1
         @rule_id = 1
-        @first_table = {}
-        @follow_table = {}
         @syntax_definition_completed = false
 
         token("$")
@@ -96,9 +94,11 @@ module Parzer
         u = []
         state_id = 1
 
-        # Start with "*A" where "A" is the start symbol
-        item = stations.first
-        states = build_state(item)
+        # Start with [S -> *E, $] "S" is the start symbol
+        r = @rules.first
+        term = r.build_term(0, @tokens[:"$"])
+        states = build_state(term)
+
         # Add states
         s[state_id] = states
         ss << states
@@ -107,29 +107,34 @@ module Parzer
 
         while !u.empty? do
           target_state_id = u.shift
-          target_states = s[target_state_id]
+          target_terms = s[target_state_id]
 
           all_tokens.each do |token|
-            # Set of states
+            # GOTO
+            # Set of terms
             v = Set.new
+            target_terms.each do |term|
+              rule_with_pos = term.rule_with_pos
+              next if rule_with_pos.token_after_pos != token
 
-            target_states.each do |state|
-              next if state.token_after_pos != token
-
-              new_state = state.right_shift_pos
-              states = build_state(new_state)
-              v.merge(states)
+              new_rule_with_pos = rule_with_pos.right_shift_pos
+              v << new_rule_with_pos.build_term(term.token)
             end
 
+            states = expand_state(v)
+
             next if v.empty?
-            # Add transition even if states is already in ss.
-            t << [target_state_id, token, state_id]
-            next if ss.include?(v)
-            # Add states
-            s[state_id] = v
-            ss << v
-            u << state_id
-            state_id += 1
+
+            if ss.include?(v)
+              t << [target_state_id, token, s.key(v)]
+            else
+              # Add states
+              s[state_id] = v
+              ss << v
+              u << state_id
+              t << [target_state_id, token, state_id]
+              state_id += 1
+            end
           end
         end
 
@@ -171,11 +176,13 @@ module Parzer
       end
 
       # FIRST
-      # Token can be Terminal and Nonterminal
-      def first(token)
+      #
+      # each token can be Terminal and Nonterminal
+      def first(*tokens)
         ensure_syntax_definition_completed!
 
         result = Set.new
+        token = tokens.first
 
         if token.is_terminal?
           result << token
@@ -191,6 +198,7 @@ module Parzer
       end
 
       # FOLLOW
+      #
       # https://knsm.net/follow-%E3%81%AE%E8%A8%88%E7%AE%97%E3%82%92%E9%96%93%E9%81%95%E3%81%88%E3%81%AB%E3%81%8F%E3%81%8F%E3%81%99%E3%82%8B%E5%B7%A5%E5%A4%AB-d1d978ce96ec
       def follow(n_token)
         ensure_syntax_definition_completed!
@@ -224,25 +232,39 @@ module Parzer
         result
       end
 
-      private
-
-      def build_state(item_or_station)
+      def build_state(term)
         states = Set.new
-        expand_state(item_or_station, states)
+        states << term
+        expand_state(states)
         states
       end
 
-      def expand_state(item_or_station, set)
-        return if set.include?(item_or_station)
-        set << item_or_station if item_or_station.is_item?
-        token = item_or_station.token_after_pos
-        return if token.nil?
-        return if token.is_terminal?
+      private
 
-        @rules.select do |rule|
-          rule.left_token == token
-        end.map do |rule|
-          expand_state(rule.build_rule_with_pos(0), set)
+      def expand_state(states)
+        added = false
+        new_terms = []
+
+        states.each do |term|
+          token = term.rule_with_pos.token_after_pos
+
+          @rules.select do |rule|
+            rule.left_token == token
+          end.each do |rule|
+            tokens = term.rule_with_pos.tokens_after_pos
+
+            first(*tokens, term.token).each do |t|
+              new_terms << rule.build_term(0, t)
+            end
+          end
+        end
+
+        new_terms.each do |n|
+          added ||= states.add?(n)
+        end
+
+        if added
+          expand_state(states)
         end
       end
 
@@ -318,6 +340,11 @@ module Parzer
         RuleWithPos.new(self, pos)
       end
 
+      # token is terminal
+      def build_term(pos, token)
+        Term.new(build_rule_with_pos(pos), token)
+      end
+
       def ==(other)
         return false unless other.is_a?(Rule)
 
@@ -346,6 +373,11 @@ module Parzer
         true
       end
 
+      # token is terminal
+      def build_term(token)
+        Term.new(self, token)
+      end
+
       def ==(other)
         return false unless other.is_a?(RuleWithPos)
 
@@ -365,6 +397,11 @@ module Parzer
         @rule.right_tokens[@pos_index]
       end
 
+      # When [A -> α*Bβ, a], return β
+      def tokens_after_pos
+        @rule.right_tokens[(@pos_index + 1)..]
+      end
+
       def right_shift_pos
         RuleWithPos.new(@rule, @pos_index + 1)
       end
@@ -372,13 +409,42 @@ module Parzer
       def to_s
         as_array.to_s
       end
-
       alias inspect to_s
 
       # Check if dot is end (e.g. "aB*")
       def dot_is_end?
         @rule.right_tokens.count == @pos_index
       end
+    end
+
+    # e.g. [S -> *E, $]
+    class Term
+      attr_reader :rule_with_pos, :token
+      # token is terminal
+      def initialize(rule_with_pos, token)
+        @rule_with_pos = rule_with_pos
+        @token = token
+      end
+
+      def ==(other)
+        return false unless other.is_a?(Term)
+
+        (self.rule_with_pos == other.rule_with_pos) && (self.token == other.token)
+      end
+      alias :eql? :==
+
+      def hash
+        [@rule_with_pos, @token].hash
+      end
+
+      def as_array
+        [@rule_with_pos.as_array, @token]
+      end
+
+      def to_s
+        as_array.to_s
+      end
+      alias inspect to_s
     end
 
     class Station
