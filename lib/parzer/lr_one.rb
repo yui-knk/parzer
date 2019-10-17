@@ -95,10 +95,9 @@ module Parzer
         # Start with [S -> *E, $] "S" is the start symbol
         r = @rules.first
         term = r.build_term(0, @tokens[:"$"])
-        states = build_state(term)
 
         # Add states
-        s[state_id] = states
+        s[state_id] = build_state(term)
         u << state_id
         state_id += 1
 
@@ -107,18 +106,7 @@ module Parzer
           target_terms = s[target_state_id]
 
           all_tokens.each do |token|
-            # GOTO
-            # Set of terms
-            v = Set.new
-            target_terms.each do |term|
-              rule_with_pos = term.rule_with_pos
-              next if rule_with_pos.token_after_pos != token
-
-              new_rule_with_pos = rule_with_pos.right_shift_pos
-              v << new_rule_with_pos.build_term(term.token)
-            end
-
-            states = expand_state(v)
+            v = goto(target_terms, token)
 
             next if v.empty?
 
@@ -144,26 +132,48 @@ module Parzer
       def action_goto_tables
         s, t = construct_parse_table
 
-        action = []
-        goto = []
+        action_table = []
+        goto_table = []
 
-        s.each do |k, v|
-          if v.count == 1 && v.to_a.first.dot_is_end?
-            action[k] = v.to_a.first.rule
-          else
-            action[k] = :shift
+        s.count.times do |i|
+          action_table[i + 1] = []
+          goto_table[i + 1] = []
+        end
+
+        s.each do |k, terms|
+          terms.each do |term|
+            # (2-c)
+            if term.rule.id == 1 && term.rule_with_pos.dot_is_end?
+              action_table[k][@tokens[:"$"].id] = :acc
+              next
+            end
+
+            token = term.rule_with_pos.token_after_pos
+
+            if !token.nil?
+              # (2-a)
+              next if token.is_nonterminal?
+
+              state = goto(terms, token)
+              action_table[k][token.id] = :"shift_#{s.key(state)}"
+            else
+              # (2-b)
+              rule = term.rule
+              next if rule.left_token.id == 1
+
+              action_table[k][term.token.id] = :"reduce_#{rule.id}"
+            end
+          end
+
+          @n_tokens.each do |k2, n_token|
+            state = goto(terms, n_token)
+            next if state.empty?
+
+            goto_table[k][n_token.id] = s.key(state)
           end
         end
 
-        (0..s.count).each do |i|
-          goto[i] = []
-        end
-
-        t.each do |from, token, to|
-          goto[from][token.id] = to
-        end
-
-        return action, goto, s, t
+        return action_table, goto_table, s, t
       end
 
       def build_parser(lexer)
@@ -236,6 +246,22 @@ module Parzer
       end
 
       private
+
+      # GOTO
+      def goto(target_terms, token)
+        v = Set.new
+        target_terms.each do |term|
+          rule_with_pos = term.rule_with_pos
+          next if rule_with_pos.token_after_pos != token
+
+          new_rule_with_pos = rule_with_pos.right_shift_pos
+          v << new_rule_with_pos.build_term(term.token)
+        end
+
+        expand_state(v)
+
+        v
+      end
 
       def expand_state(states)
         added = false
@@ -420,6 +446,10 @@ module Parzer
       def initialize(rule_with_pos, token)
         @rule_with_pos = rule_with_pos
         @token = token
+      end
+
+      def rule
+        @rule_with_pos.rule
       end
 
       def ==(other)

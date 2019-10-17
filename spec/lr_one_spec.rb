@@ -215,5 +215,11 @@ RSpec.describe Parzer::Lr_One do
         expect(ei9).to eq(i9)
       end
     end
+
+    describe "#action_goto_tables" do
+      it do
+        action, goto, s, t = context_3.action_goto_tables
+      end
+    end
   end
 end
