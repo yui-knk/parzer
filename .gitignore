@@ -12,5 +12,5 @@
 
 /vendor
 
-parse.tab.c
-parse.output
+parse*.c
+parse*.output

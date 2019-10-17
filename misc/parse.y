@@ -1,14 +1,14 @@
 /* 478191229X P.282 */
 
-%token C D
+%token c d
 
 %%
-s_dash          : s
+S_DASH          : S
                 ;
 
-s               : c c
+S               : C C
                 ;
 
-c               : C c
-                | D
+C               : c C
+                | d
                 ;
