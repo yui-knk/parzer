@@ -1,6 +1,7 @@
 require "parzer/lalr_one"
 require "parzer/lr_one"
 require "parzer/lr_zero"
+require "parzer/parzer"
 require "parzer/version"
 
 module Parzer

@@ -22,7 +22,10 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+```
+$ cp /path/to/your/parse.c ext/parzer/parse.inc
+$ rake compile
+```
 
 ## Development
 
