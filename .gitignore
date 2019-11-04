@@ -13,7 +13,9 @@
 /vendor
 
 parse*.c
+parse*.h
 parse*.output
 
 ext/parzer/parse.inc
+ext/parzer/parse.h.inc
 lib/parzer/parzer.bundle

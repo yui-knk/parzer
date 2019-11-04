@@ -1,11 +1,35 @@
+#include <stdbool.h>
 #include <ruby.h>
 
 #define YYDEBUG 1
 
-static int
+#include "./parse.h.inc"
+
+static void rb_parsey_yyprint(FILE *yyo, enum yytokentype tok, const YYSTYPE valp);
+#define YYPRINT(out, tok, val) rb_parsey_yyprint(out, tok, val)
+
+static VALUE rb_mParzer;
+
+static enum yytokentype yylex(void);
+static void yyerror(char const *s);
+
+#include "./parse.inc"
+
+static enum yytokentype
 yylex(void)
 {
-    return 1;
+    VALUE next_token;
+    int i;
+
+    next_token = rb_funcall(rb_mParzer, rb_intern("next_token"), 0);
+    Check_Type(next_token, T_FIXNUM);
+    i = FIX2INT(next_token);
+
+    if (i >= YYNTOKENS) {
+        rb_raise(rb_eRangeError, "token %d is invalid should less than %d", i, YYNTOKENS);
+    }
+
+    return yytoknum[i];
 }
 
 static void
@@ -13,16 +37,11 @@ yyerror(char const *s)
 {
 }
 
-#include "./parse.inc"
 
 const unsigned long yytranslate_len = sizeof(yytranslate) / sizeof(yytranslate[0]);
 const unsigned long yyrline_len = sizeof(yyrline) / sizeof(yyrline[0]);
 static const unsigned long yytname_len = sizeof(yytname) / sizeof(yytname[0]);
-
-#ifdef YYPRINT
 static const unsigned long yytoknum_len = sizeof(yytoknum) / sizeof(yytoknum[0]);
-#endif
-
 static const unsigned long yypact_len = sizeof(yypact) / sizeof(yypact[0]);
 static const unsigned long yydefact_len = sizeof(yydefact) / sizeof(yydefact[0]);
 static const unsigned long yypgoto_len = sizeof(yypgoto) / sizeof(yypgoto[0]);
@@ -32,6 +51,41 @@ static const unsigned long yycheck_len = sizeof(yycheck) / sizeof(yycheck[0]);
 static const unsigned long yystos_len = sizeof(yystos) / sizeof(yystos[0]);
 static const unsigned long yyr1_len = sizeof(yyr1) / sizeof(yyr1[0]);
 static const unsigned long yyr2_len = sizeof(yyr2) / sizeof(yyr2[0]);
+
+static void
+rb_parsey_yyprint(FILE *yyo, enum yytokentype tok, const YYSTYPE valp)
+{
+}
+
+static VALUE
+rb_parsey_s_yyparse(VALUE module)
+{
+    yyparse();
+
+    return Qtrue;
+}
+
+static void
+rb_parsey_set_yydebug(bool b)
+{
+    yydebug = b;
+}
+
+static VALUE
+rb_parsey_s_enable_yydebug(VALUE module)
+{
+    rb_parsey_set_yydebug(true);
+
+    return Qtrue;
+}
+
+static VALUE
+rb_parsey_s_disable_yydebug(VALUE module)
+{
+    rb_parsey_set_yydebug(false);
+
+    return Qfalse;
+}
 
 static VALUE
 rb_parsey_s_yytranslate(VALUE module)
@@ -75,7 +129,6 @@ rb_parsey_s_yytname(VALUE module)
     return ary;
 }
 
-#ifdef YYPRINT
 static VALUE
 rb_parsey_s_yytoknum(VALUE module)
 {
@@ -87,7 +140,6 @@ rb_parsey_s_yytoknum(VALUE module)
 
     return ary;
 }
-#endif
 
 static VALUE
 rb_parsey_s_yypact(VALUE module)
@@ -236,16 +288,16 @@ rb_parsey_s_yynstates(VALUE module)
 void
 Init_parzer(void)
 {
-    VALUE rb_mParzer = rb_define_module("Parzer");
+    rb_mParzer = rb_define_module("Parzer");
+
+    rb_define_singleton_method(rb_mParzer, "yyparse", rb_parsey_s_yyparse, 0);
+    rb_define_singleton_method(rb_mParzer, "enable_yydebug", rb_parsey_s_enable_yydebug, 0);
+    rb_define_singleton_method(rb_mParzer, "disable_yydebug", rb_parsey_s_disable_yydebug, 0);
 
     rb_define_singleton_method(rb_mParzer, "yytranslate", rb_parsey_s_yytranslate, 0);
     rb_define_singleton_method(rb_mParzer, "yyrline", rb_parsey_s_yyrline, 0);
     rb_define_singleton_method(rb_mParzer, "yytname", rb_parsey_s_yytname, 0);
-
-#ifdef YYPRINT
     rb_define_singleton_method(rb_mParzer, "yytoknum", rb_parsey_s_yytoknum, 0);
-#endif
-
     rb_define_singleton_method(rb_mParzer, "yypact", rb_parsey_s_yypact, 0);
     rb_define_singleton_method(rb_mParzer, "yydefact", rb_parsey_s_yydefact, 0);
     rb_define_singleton_method(rb_mParzer, "yypgoto", rb_parsey_s_yypgoto, 0);

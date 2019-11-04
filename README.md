@@ -24,6 +24,7 @@ Or install it yourself as:
 
 ```
 $ cp /path/to/your/parse.c ext/parzer/parse.inc
+$ cp /path/to/your/parse.h ext/parzer/parse.h.inc
 $ rake compile
 ```
 
