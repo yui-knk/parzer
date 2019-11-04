@@ -203,6 +203,36 @@ rb_parsey_s_yypact_ninf(VALUE module)
     return INT2FIX(YYPACT_NINF);
 }
 
+static VALUE
+rb_parsey_s_yylast(VALUE module)
+{
+    return INT2FIX(YYLAST);
+}
+
+static VALUE
+rb_parsey_s_yyntokens(VALUE module)
+{
+    return INT2FIX(YYNTOKENS);
+}
+
+static VALUE
+rb_parsey_s_yynnts(VALUE module)
+{
+    return INT2FIX(YYNNTS);
+}
+
+static VALUE
+rb_parsey_s_yynrules(VALUE module)
+{
+    return INT2FIX(YYNRULES);
+}
+
+static VALUE
+rb_parsey_s_yynstates(VALUE module)
+{
+    return INT2FIX(YYNSTATES);
+}
+
 void
 Init_parzer(void)
 {
@@ -226,4 +256,9 @@ Init_parzer(void)
     rb_define_singleton_method(rb_mParzer, "yyr1", rb_parsey_s_yyr1, 0);
     rb_define_singleton_method(rb_mParzer, "yyr2", rb_parsey_s_yyr2, 0);
     rb_define_singleton_method(rb_mParzer, "yypact_ninf", rb_parsey_s_yypact_ninf, 0);
+    rb_define_singleton_method(rb_mParzer, "yylast", rb_parsey_s_yylast, 0);
+    rb_define_singleton_method(rb_mParzer, "yyntokens", rb_parsey_s_yyntokens, 0);
+    rb_define_singleton_method(rb_mParzer, "yynnts", rb_parsey_s_yynnts, 0);
+    rb_define_singleton_method(rb_mParzer, "yynrules", rb_parsey_s_yynrules, 0);
+    rb_define_singleton_method(rb_mParzer, "yynstates", rb_parsey_s_yynstates, 0);
 }
