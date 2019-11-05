@@ -14,6 +14,8 @@
 %token tLPAREN "("
 %token tRPAREN ")"
 
+%param {VALUE parser}
+
 %%
 L               : L ';' E
                 | E

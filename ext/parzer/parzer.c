@@ -8,20 +8,20 @@
 static void rb_parsey_yyprint(FILE *yyo, enum yytokentype tok, const YYSTYPE valp);
 #define YYPRINT(out, tok, val) rb_parsey_yyprint(out, tok, val)
 
-static VALUE rb_mParzer;
+static VALUE cBisonWrapper;
 
-static enum yytokentype yylex(void);
-static void yyerror(char const *s);
+static enum yytokentype yylex(VALUE parser);
+static void yyerror(VALUE parser, char const *s);
 
 #include "./parse.inc"
 
 static enum yytokentype
-yylex(void)
+yylex(VALUE parser)
 {
     VALUE next_token;
     int i;
 
-    next_token = rb_funcall(rb_mParzer, rb_intern("next_token"), 0);
+    next_token = rb_funcall(parser, rb_intern("next_token"), 0);
     Check_Type(next_token, T_FIXNUM);
     i = FIX2INT(next_token);
 
@@ -33,7 +33,7 @@ yylex(void)
 }
 
 static void
-yyerror(char const *s)
+yyerror(VALUE parser, char const *s)
 {
 }
 
@@ -58,9 +58,9 @@ rb_parsey_yyprint(FILE *yyo, enum yytokentype tok, const YYSTYPE valp)
 }
 
 static VALUE
-rb_parsey_s_yyparse(VALUE module)
+rb_parsey_yyparse(VALUE parser)
 {
-    yyparse();
+    yyparse(parser);
 
     return Qtrue;
 }
@@ -72,7 +72,7 @@ rb_parsey_set_yydebug(bool b)
 }
 
 static VALUE
-rb_parsey_s_enable_yydebug(VALUE module)
+rb_parsey_enable_yydebug(VALUE parser)
 {
     rb_parsey_set_yydebug(true);
 
@@ -80,7 +80,7 @@ rb_parsey_s_enable_yydebug(VALUE module)
 }
 
 static VALUE
-rb_parsey_s_disable_yydebug(VALUE module)
+rb_parsey_disable_yydebug(VALUE parser)
 {
     rb_parsey_set_yydebug(false);
 
@@ -288,29 +288,30 @@ rb_parsey_s_yynstates(VALUE module)
 void
 Init_parzer(void)
 {
-    rb_mParzer = rb_define_module("Parzer");
+    VALUE mParzer = rb_define_module("Parzer");
+    cBisonWrapper = rb_define_class_under(mParzer, "BisonWrapper", rb_cObject);
 
-    rb_define_singleton_method(rb_mParzer, "yyparse", rb_parsey_s_yyparse, 0);
-    rb_define_singleton_method(rb_mParzer, "enable_yydebug", rb_parsey_s_enable_yydebug, 0);
-    rb_define_singleton_method(rb_mParzer, "disable_yydebug", rb_parsey_s_disable_yydebug, 0);
+    rb_define_method(cBisonWrapper, "yyparse", rb_parsey_yyparse, 0);
+    rb_define_method(cBisonWrapper, "enable_yydebug", rb_parsey_enable_yydebug, 0);
+    rb_define_method(cBisonWrapper, "disable_yydebug", rb_parsey_disable_yydebug, 0);
 
-    rb_define_singleton_method(rb_mParzer, "yytranslate", rb_parsey_s_yytranslate, 0);
-    rb_define_singleton_method(rb_mParzer, "yyrline", rb_parsey_s_yyrline, 0);
-    rb_define_singleton_method(rb_mParzer, "yytname", rb_parsey_s_yytname, 0);
-    rb_define_singleton_method(rb_mParzer, "yytoknum", rb_parsey_s_yytoknum, 0);
-    rb_define_singleton_method(rb_mParzer, "yypact", rb_parsey_s_yypact, 0);
-    rb_define_singleton_method(rb_mParzer, "yydefact", rb_parsey_s_yydefact, 0);
-    rb_define_singleton_method(rb_mParzer, "yypgoto", rb_parsey_s_yypgoto, 0);
-    rb_define_singleton_method(rb_mParzer, "yydefgoto", rb_parsey_s_yydefgoto, 0);
-    rb_define_singleton_method(rb_mParzer, "yytable", rb_parsey_s_yytable, 0);
-    rb_define_singleton_method(rb_mParzer, "yycheck", rb_parsey_s_yycheck, 0);
-    rb_define_singleton_method(rb_mParzer, "yystos", rb_parsey_s_yystos, 0);
-    rb_define_singleton_method(rb_mParzer, "yyr1", rb_parsey_s_yyr1, 0);
-    rb_define_singleton_method(rb_mParzer, "yyr2", rb_parsey_s_yyr2, 0);
-    rb_define_singleton_method(rb_mParzer, "yypact_ninf", rb_parsey_s_yypact_ninf, 0);
-    rb_define_singleton_method(rb_mParzer, "yylast", rb_parsey_s_yylast, 0);
-    rb_define_singleton_method(rb_mParzer, "yyntokens", rb_parsey_s_yyntokens, 0);
-    rb_define_singleton_method(rb_mParzer, "yynnts", rb_parsey_s_yynnts, 0);
-    rb_define_singleton_method(rb_mParzer, "yynrules", rb_parsey_s_yynrules, 0);
-    rb_define_singleton_method(rb_mParzer, "yynstates", rb_parsey_s_yynstates, 0);
+    rb_define_singleton_method(mParzer, "yytranslate", rb_parsey_s_yytranslate, 0);
+    rb_define_singleton_method(mParzer, "yyrline", rb_parsey_s_yyrline, 0);
+    rb_define_singleton_method(mParzer, "yytname", rb_parsey_s_yytname, 0);
+    rb_define_singleton_method(mParzer, "yytoknum", rb_parsey_s_yytoknum, 0);
+    rb_define_singleton_method(mParzer, "yypact", rb_parsey_s_yypact, 0);
+    rb_define_singleton_method(mParzer, "yydefact", rb_parsey_s_yydefact, 0);
+    rb_define_singleton_method(mParzer, "yypgoto", rb_parsey_s_yypgoto, 0);
+    rb_define_singleton_method(mParzer, "yydefgoto", rb_parsey_s_yydefgoto, 0);
+    rb_define_singleton_method(mParzer, "yytable", rb_parsey_s_yytable, 0);
+    rb_define_singleton_method(mParzer, "yycheck", rb_parsey_s_yycheck, 0);
+    rb_define_singleton_method(mParzer, "yystos", rb_parsey_s_yystos, 0);
+    rb_define_singleton_method(mParzer, "yyr1", rb_parsey_s_yyr1, 0);
+    rb_define_singleton_method(mParzer, "yyr2", rb_parsey_s_yyr2, 0);
+    rb_define_singleton_method(mParzer, "yypact_ninf", rb_parsey_s_yypact_ninf, 0);
+    rb_define_singleton_method(mParzer, "yylast", rb_parsey_s_yylast, 0);
+    rb_define_singleton_method(mParzer, "yyntokens", rb_parsey_s_yyntokens, 0);
+    rb_define_singleton_method(mParzer, "yynnts", rb_parsey_s_yynnts, 0);
+    rb_define_singleton_method(mParzer, "yynrules", rb_parsey_s_yynrules, 0);
+    rb_define_singleton_method(mParzer, "yynstates", rb_parsey_s_yynstates, 0);
 }

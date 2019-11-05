@@ -22,7 +22,10 @@ Or install it yourself as:
 
 ## Usage
 
+Include `%param {VALUE parser}` into parse.y
+
 ```
+$ bison -d -o parse.c parse.y
 $ cp /path/to/your/parse.c ext/parzer/parse.inc
 $ cp /path/to/your/parse.h ext/parzer/parse.h.inc
 $ rake compile

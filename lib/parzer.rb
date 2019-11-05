@@ -1,3 +1,4 @@
+require "parzer/bison_wrapper"
 require "parzer/lalr_one"
 require "parzer/lr_one"
 require "parzer/lr_zero"
@@ -86,41 +87,6 @@ module Parzer
       else
         result_row << :"r#{defact}"
       end
-    end
-
-    def token_map
-      h = {}
-
-      tokens.each_with_index do |t, i|
-        h[t] = i
-
-        case
-        when /\A"(.)"\z/ =~ t
-          h[$1] = i
-        when /\A'(.)'\z/ =~ t
-          h[$1] = i
-        end
-      end
-
-      h
-    end
-
-    def chars_to_index(chars)
-      _token_map = token_map
-
-      chars.map do |c|
-        _token_map[c] || (raise "#{c} is invalid, see #{_token_map.keys}")
-      end + [0] # Add "$end" to end
-    end
-
-    def next_token
-      @_tokens ||= chars_to_index(["a", ";", "(", ")"])
-      @_i ||= 0
-      @_tokens
-
-      r = @_tokens[@_i]
-      @_i += 1
-      r
     end
   end
 end
