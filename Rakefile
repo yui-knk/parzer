@@ -12,3 +12,10 @@ Rake::ExtensionTask.new("parzer", spec) do |ext|
 end
 
 task :default => :spec
+
+namespace :parser do
+  task :setup, ['name'] do |task, args|
+    `cp ./misc/#{args[:name]}.c ./ext/parzer/parse.inc`
+    `cp ./misc/#{args[:name]}.h ./ext/parzer/parse.h.inc`
+  end
+end
